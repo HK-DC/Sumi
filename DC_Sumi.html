@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sumi — poems on ink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f2ede1;
+    --paper-deep:#e9e2d2;
+    --ink:#1b1a17;
+    --ink-soft:#4a463f;
+    --seal:#b3432b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--paper)}
+  body{
+    font-family:'Cormorant Garamond', Georgia, serif;
+    -webkit-font-smoothing:antialiased;
+    touch-action:none;
+  }
+  #paper{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+
+  /* ---- poem layer ---- */
+  #poemLayer{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    pointer-events:none;padding:8vmin;
+  }
+  #poem{
+    max-width:34ch;text-align:center;color:var(--ink);
+    mix-blend-mode:multiply;
+    transition:opacity 1.6s ease;
+  }
+  #poem.fading{opacity:0}
+  #poem h1{
+    font-weight:400;font-style:normal;font-size:clamp(13px,1.9vmin,17px);
+    letter-spacing:.42em;text-transform:uppercase;color:var(--ink-soft);
+    margin-bottom:3.2vmin;text-indent:.42em;
+  }
+  #poem .line{
+    font-weight:300;font-size:clamp(21px,3.6vmin,34px);
+    line-height:1.85;font-style:italic;
+    opacity:0;transform:translateY(6px);
+    animation:rise 1.4s ease forwards;
+  }
+  @keyframes rise{to{opacity:1;transform:none}}
+  #poem .gap{height:1.1em}
+
+  /* ---- artist seal ---- */
+  #seal{
+    position:fixed;right:max(18px,4vmin);bottom:max(18px,4vmin);
+    border:1.5px solid var(--seal);
+    color:var(--seal);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:8px 10px;line-height:1.5;
+    font-size:11px;letter-spacing:.3em;text-transform:uppercase;
+    font-style:normal;font-weight:400;text-indent:.3em;
+    border-radius:2px;opacity:.85;
+    font-family:'Cormorant Garamond',Georgia,serif;
+    user-select:none;pointer-events:none;
+    transform:rotate(-2deg);
+  }
+
+  /* ---- single quiet control: + ---- */
+  #addPoem{
+    position:fixed;left:max(18px,4vmin);bottom:max(18px,4vmin);
+    width:46px;height:46px;display:flex;align-items:center;justify-content:center;
+    font-size:27px;font-weight:300;line-height:1;padding-bottom:3px;
+    color:var(--ink);opacity:.8;background:rgba(242,237,225,.55);
+    border:1.5px solid var(--ink-soft);border-radius:50%;
+    font-family:inherit;cursor:pointer;
+    transition:opacity .3s, transform .3s, border-color .3s;
+  }
+  #addPoem:hover,#addPoem:focus-visible{
+    opacity:1;transform:rotate(90deg);border-color:var(--ink);outline:none;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    #poem .line{animation:none;opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="paper"></canvas>
+
+<div id="poemLayer"><div id="poem"></div></div>
+
+<div id="seal"><span>Daniel</span><span>Cross</span></div>
+<button id="addPoem" aria-label="Add a poem">+</button>
+
+<script>
+/* ============================================================
+   POEMS — Daniel Cross
+   OPENING_POEM ("Dawn") shows on load.
+   HIDDEN_POEMS is the pool — the + button draws one
+   at random. Format is { title, lines } with "" for a
+   stanza break.
+   ============================================================ */
+const OPENING_POEM = {
+  title: "Dawn",
+  lines: [
+    "the sky doesn't",
+    "hurry.",
+    "",
+    "it lets the night",
+    "finish its sentence,",
+    "",
+    "then beckons —",
+    "softly,",
+    "",
+    "come"
+  ]
+};
+
+const HIDDEN_POEMS = [
+  {
+    title: "Awakening",
+    lines: [
+      "something —",
+      "stirs",
+      "",
+      "a window",
+      "open",
+      "",
+      "a door",
+      "ajar",
+      "",
+      "your voice —",
+      "there",
+      "",
+      "the day",
+      "ours."
+    ]
+  },
+  {
+    title: "Discovery",
+    lines: [
+      "I wasn't looking.",
+      "",
+      "that's the part",
+      "I keep returning to —",
+      "",
+      "the door He left",
+      "unlocked,",
+      "",
+      "the choice",
+      "surprising",
+      "",
+      "the choice",
+      "mine",
+      "",
+      "the door",
+      "opens",
+      "",
+      "the room",
+      "lit —",
+      "",
+      "you"
+    ]
+  },
+  {
+    title: "Rediscovery",
+    lines: [
+      "it was here",
+      "it was there",
+      "the whole time,",
+      "",
+      "folded small,",
+      "kept dry,",
+      "silent",
+      "hidden",
+      "",
+      "waiting for",
+      "your hands",
+      "to bring it",
+      "",
+      "to",
+      "",
+      "life"
+    ]
+  },
+  {
+    title: "Partnership",
+    lines: [
+      "not the rope,",
+      "",
+      "but the way",
+      "two hands hold it —",
+      "",
+      "neither pulling,",
+      "neither letting go",
+      "",
+      "but working",
+      "gladly —",
+      "together"
+    ]
+  },
+  {
+    title: "Together",
+    lines: [
+      "the table set for two.",
+      "",
+      "nothing said",
+      "that needed saying.",
+      "",
+      "the kettle,",
+      "the window,",
+      "the ordinary miracle",
+      "of you —",
+      "",
+      "here."
+    ]
+  },
+  {
+    title: "Faith",
+    lines: [
+      "I don't see the whole road.",
+      "",
+      "I see the next stone,",
+      "and your hand,",
+      "",
+      "and Someone",
+      "who laid them both.",
+      "",
+      "that's enough.",
+      "",
+      "that's always been",
+      "simply —",
+      "",
+      "enough."
+    ]
+  },
+  {
+    title: "New Beginnings",
+    lines: [
+      "the page doesn't ask",
+      "what the last one said.",
+      "",
+      "it waits,",
+      "open",
+      "patiently",
+      "quietly,",
+      "",
+      "for the first",
+      "small",
+      "word"
+    ]
+  },
+  {
+    title: "Hope",
+    lines: [
+      "a green thing",
+      "in the crack of the wall —",
+      "",
+      "no one planted it.",
+      "no one told it",
+      "the odds.",
+      "",
+      "it grows anyway,",
+      "toward what it trusts",
+      "is there."
+    ]
+  },
+  {
+    title: "Friendship",
+    lines: [
+      "you never knock",
+      "loudly.",
+      "",
+      "just once,",
+      "gently",
+      "and then you wait —",
+      "quietly",
+      "",
+      "as if you already",
+      "know",
+      "the door",
+      "was left open",
+      "",
+      "for you."
+    ]
+  }
+];
+
+/* ============================================================
+   POEM DISPLAY
+   ============================================================ */
+const poemEl = document.getElementById('poem');
+let currentPoem = OPENING_POEM;
+
+/* ---- auto-ink: if the paper is untouched for 5s after a poem
+   appears, the ink begins on its own — quiet, occasional blooms.
+   A touch takes the brush back and stops it until the next poem. */
+let autoTimer = null, autoInk = false, autoNext = 0;
+function armAutoInk(){
+  clearTimeout(autoTimer);
+  autoInk = false;
+  autoTimer = setTimeout(()=>{ autoInk = true; autoNext = 0; }, 5000);
+}
+function stopAutoInk(){
+  clearTimeout(autoTimer);
+  autoInk = false;
+}
+
+function showPoem(p){
+  currentPoem = p;
+  armAutoInk();
+  poemEl.classList.add('fading');
+  setTimeout(()=>{
+    poemEl.innerHTML = '';
+    const h = document.createElement('h1');
+    h.textContent = p.title;
+    poemEl.appendChild(h);
+    p.lines.forEach((ln, k)=>{
+      if(ln === ""){ const g=document.createElement('div'); g.className='gap'; poemEl.appendChild(g); return; }
+      const d = document.createElement('div');
+      d.className = 'line';
+      d.textContent = ln;
+      d.style.animationDelay = (0.15 + k*0.22) + 's';
+      poemEl.appendChild(d);
+    });
+    poemEl.classList.remove('fading');
+  }, poemEl.innerHTML ? 900 : 0);
+}
+showPoem(OPENING_POEM);
+
+document.getElementById('addPoem').addEventListener('click', ()=>{
+  if(!HIDDEN_POEMS.length) return;
+  let pick;
+  do {
+    pick = HIDDEN_POEMS[Math.floor(Math.random()*HIDDEN_POEMS.length)];
+  } while (HIDDEN_POEMS.length > 1 && pick === currentPoem);
+  washPaper();          // clean canvas for the new poem
+  showPoem(pick);
+});
+
+/* ============================================================
+   SUMI-E INK SIMULATION
+   Layers:
+   - base canvas: washi paper texture (drawn once)
+   - ink canvas (offscreen): blooms accumulate, slowly evaporate
+   - visible canvas composites paper + ink each frame
+   ============================================================ */
+const canvas = document.getElementById('paper');
+const ctx = canvas.getContext('2d');
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+let W=0, H=0;
+
+const inkC = document.createElement('canvas');
+const inkX = inkC.getContext('2d', { willReadFrequently: true });
+const paperC = document.createElement('canvas');
+const paperX = paperC.getContext('2d');
+const INK_SCALE = 0.5;   // ink buffer at half res: softer wash, cheap full-clear sweeps
+
+function resize(){
+  W = Math.floor(innerWidth * DPR);
+  H = Math.floor(innerHeight * DPR);
+  canvas.width = W; canvas.height = H;
+  canvas.style.width = innerWidth+'px';
+  canvas.style.height = innerHeight+'px';
+  inkC.width = Math.ceil(W*INK_SCALE); inkC.height = Math.ceil(H*INK_SCALE);
+  inkX.setTransform(INK_SCALE,0,0,INK_SCALE,0,0);
+  paperC.width = W; paperC.height = H;
+  paintPaper();
+}
+function paintPaper(){
+  paperX.fillStyle = '#f2ede1';
+  paperX.fillRect(0,0,W,H);
+  // soft tonal patches
+  for(let i=0;i<26;i++){
+    const g = paperX.createRadialGradient(
+      Math.random()*W, Math.random()*H, 0,
+      Math.random()*W, Math.random()*H, (0.15+Math.random()*0.35)*Math.max(W,H));
+    g.addColorStop(0, 'rgba(226,216,196,0.10)');
+    g.addColorStop(1, 'rgba(226,216,196,0)');
+    paperX.fillStyle = g;
+    paperX.fillRect(0,0,W,H);
+  }
+  // paper fibres
+  paperX.strokeStyle = 'rgba(120,110,90,0.045)';
+  paperX.lineWidth = 1;
+  const n = Math.floor((W*H)/26000);
+  for(let i=0;i<n;i++){
+    const x = Math.random()*W, y = Math.random()*H;
+    const a = Math.random()*Math.PI, l = 4+Math.random()*22;
+    paperX.beginPath();
+    paperX.moveTo(x,y);
+    paperX.lineTo(x+Math.cos(a)*l, y+Math.sin(a)*l);
+    paperX.stroke();
+  }
+  // grain
+  for(let i=0;i<n*2;i++){
+    paperX.fillStyle = 'rgba(100,92,74,'+(0.02+Math.random()*0.04)+')';
+    paperX.fillRect(Math.random()*W, Math.random()*H, 1.2, 1.2);
+  }
+  // vignette
+  const vg = paperX.createRadialGradient(W/2,H/2, Math.min(W,H)*0.35, W/2,H/2, Math.max(W,H)*0.75);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(70,60,40,0.07)');
+  paperX.fillStyle = vg;
+  paperX.fillRect(0,0,W,H);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---- ink palette: each touch dips the brush anew ----
+   black is now one pigment among several, not the default   */
+const INKS = [
+  {r:27,  g:26,  b:23,  w:2},   // carbon black
+  {r:29,  g:60,  b:130, w:1.6}, // indigo
+  {r:150, g:30,  b:45,  w:1.4}, // crimson
+  {r:22,  g:105, b:80,  w:1.4}, // jade
+  {r:110, g:50,  b:140, w:1.2}, // plum
+  {r:160, g:100, b:30,  w:1.2}, // amber sepia
+  {r:190, g:70,  b:30,  w:1.2}, // vermilion
+  {r:30,  g:110, b:135, w:1.2}  // sea teal
+];
+const INK_TOTAL = INKS.reduce((s,c)=>s+c.w,0);
+let lastInk = null;
+function dipBrush(){
+  for(let tries=0; tries<3; tries++){
+    let x = Math.random()*INK_TOTAL;
+    for(const c of INKS){
+      x -= c.w;
+      if(x <= 0){
+        if(c === lastInk) break;   // re-roll for a fresh pigment
+        lastInk = c;
+        return c;
+      }
+    }
+  }
+  return lastInk || INKS[0];
+}
+
+/* ---- bloom objects ---- */
+const blooms = [];
+const MAX_BLOOMS = 90;
+const SPOKES = 64;
+
+function makeBloom(x, y, size, dark, col){
+  // per-angle irregular radius profile
+  const prof = new Float32Array(SPOKES);
+  const growth = new Float32Array(SPOKES);
+  let r = 0.6 + Math.random()*0.5;
+  for(let i=0;i<SPOKES;i++){
+    r += (Math.random()-0.5)*0.38;
+    r = Math.max(0.35, Math.min(1.5, r));
+    prof[i] = r;
+    growth[i] = 0.85 + Math.random()*0.5;
+  }
+  // wrap smoothing
+  prof[SPOKES-1] = (prof[SPOKES-1]+prof[0])/2;
+  // ~a third of blooms swirl: they drift along a slow spiral as they bleed
+  let sw = null;
+  if(Math.random() < 0.35){
+    sw = {
+      a: Math.random()*Math.PI*2,
+      r: 0,
+      rot: (Math.random()<0.5?-1:1) * (0.015 + Math.random()*0.045),
+      drift: (0.15 + Math.random()*0.45) * DPR
+    };
+  }
+  return {
+    x, y, ox: x, oy: y,
+    age: 0,
+    life: 180 + Math.random()*130,     // frames of active spreading
+    maxR: size * (0.7+Math.random()*0.6) * DPR,
+    prof, growth,
+    dark: dark,                          // ink load 0..1
+    col: col,                            // pigment
+    sw,                                  // swirl, or null
+    wobble: Math.random()*Math.PI*2
+  };
+}
+
+function spawnInk(x, y, pressure, col){
+  x *= DPR; y *= DPR;
+  col = col || dipBrush();
+  const size = 14 + pressure*46;
+  const dark = 0.5 + Math.random()*0.5;
+  blooms.push(makeBloom(x, y, size, dark, col));
+  // flying speckles — same pigment as the bloom
+  const sp = 2 + Math.floor(Math.random()*4 + pressure*5);
+  for(let i=0;i<sp;i++){
+    const a = Math.random()*Math.PI*2;
+    const d = (size*0.9 + Math.random()*size*2.2) * DPR;
+    blooms.push(makeBloom(x+Math.cos(a)*d, y+Math.sin(a)*d, 1.5+Math.random()*4.5, 0.35+Math.random()*0.4, col));
+  }
+  while(blooms.length > MAX_BLOOMS) blooms.shift();
+  return col;
+}
+
+function drawBloom(b){
+  const t = b.age / b.life;                    // 0..1
+  // swirl: drift along a slow spiral, leaving a curled wisp
+  if(b.sw){
+    b.sw.a += b.sw.rot;
+    b.sw.r += b.sw.drift;
+    b.x = b.ox + Math.cos(b.sw.a) * b.sw.r;
+    b.y = b.oy + Math.sin(b.sw.a) * b.sw.r;
+  }
+  const ease = 1 - Math.pow(1 - Math.min(t,1), 2); // gentle, unhurried bleed
+  const baseR = b.maxR * (0.12 + 0.88*ease);
+  // ink darkness per pass: strong at core, feathering edge
+  // swirlers paint lighter — their ink is spread along the curl
+  const swMul = b.sw ? 0.55 : 1;
+  const edgeAlpha = 0.010 * b.dark * swMul * (1 - t*0.55);
+  const coreAlpha = 0.028 * b.dark * swMul * (1 - t*0.75);
+  const rgb = b.col.r + ',' + b.col.g + ',' + b.col.b;
+
+  // feathered irregular edge — accumulate low alpha passes
+  inkX.fillStyle = 'rgba(' + rgb + ',' + edgeAlpha.toFixed(4) + ')';
+  inkX.beginPath();
+  for(let i=0;i<=SPOKES;i++){
+    const k = i % SPOKES;
+    const ang = (k/SPOKES)*Math.PI*2 + b.wobble;
+    const jag = 1 + Math.sin(b.age*0.11 + k*1.7)*0.045;
+    const r = baseR * b.prof[k] * (0.9 + 0.1*b.growth[k]*ease) * jag;
+    const px = b.x + Math.cos(ang)*r;
+    const py = b.y + Math.sin(ang)*r;
+    i===0 ? inkX.moveTo(px,py) : inkX.lineTo(px,py);
+  }
+  inkX.closePath();
+  inkX.fill();
+
+  // darker core
+  if(t < 0.85){
+    inkX.fillStyle = 'rgba(' + rgb + ',' + coreAlpha.toFixed(4) + ')';
+    inkX.beginPath();
+    inkX.arc(b.x, b.y, baseR*0.42, 0, Math.PI*2);
+    inkX.fill();
+  }
+}
+
+/* ---- pointer handling ---- */
+let lastPt = null, lastT = 0, strokeCol = null;
+
+function pointerPos(e){
+  return { x: e.clientX, y: e.clientY };
+}
+function onDown(e){
+  if(e.target.id === 'addPoem') return;
+  stopAutoInk();
+  const p = pointerPos(e);
+  strokeCol = spawnInk(p.x, p.y, 0.85);
+  lastPt = p; lastT = performance.now();
+}
+function onMove(e){
+  if(!(e.buttons & 1) && e.pointerType === 'mouse') { lastPt=null; return; }
+  if(e.pointerType !== 'mouse' && e.type==='pointermove' && !e.isPrimary) return;
+  const p = pointerPos(e);
+  if(!lastPt){ lastPt = p; return; }
+  const dx = p.x-lastPt.x, dy = p.y-lastPt.y;
+  const dist = Math.hypot(dx,dy);
+  if(dist < 7) return;
+  // brushstroke: interpolate small blooms; faster stroke = drier, thinner line
+  const now = performance.now();
+  const speed = dist / Math.max(now-lastT, 1);
+  const load = Math.max(0.12, 0.6 - speed*0.25);
+  const steps = Math.min(6, Math.floor(dist/9));
+  for(let i=1;i<=steps;i++){
+    spawnInk(lastPt.x + dx*i/steps, lastPt.y + dy*i/steps, load, strokeCol);
+  }
+  lastPt = p; lastT = now;
+}
+function onUp(){ lastPt = null; strokeCol = null; }
+
+canvas.addEventListener('pointerdown', onDown);
+window.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+
+/* ---- main loop ---- */
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let rinse = 0;        // frames of accelerated wash-out (new poem)
+let sweepTick = 0;
+
+function washPaper(){   // called when a new poem arrives
+  rinse = 120;
+  blooms.length = 0;
+}
+
+// hard-guarantee full evaporation: canvas alpha fades stall at tiny
+// values due to rounding, so periodically subtract from every pixel
+function sweep(amount){
+  const img = inkX.getImageData(0, 0, inkC.width, inkC.height);
+  const d = img.data;
+  for(let i=3;i<d.length;i+=4){
+    const a = d[i];
+    if(a) d[i] = a > amount ? a - amount : 0;
+  }
+  inkX.putImageData(img, 0, 0);
+}
+
+function frame(){
+  // auto-ink: an unseen brush, dropping a bloom every few seconds
+  if(autoInk && !reduced){
+    const now = performance.now();
+    if(now >= autoNext){
+      const x = innerWidth  * (0.08 + Math.random()*0.84);
+      const y = innerHeight * (0.08 + Math.random()*0.84);
+      spawnInk(x, y, 0.25 + Math.random()*0.45);
+      autoNext = now + 1800 + Math.random()*2800;
+    }
+  }
+  // grow blooms
+  for(let i=blooms.length-1;i>=0;i--){
+    const b = blooms[i];
+    if(b.age <= b.life) drawBloom(b);
+    b.age++;
+    if(b.age > b.life + 20) blooms.splice(i,1);
+  }
+  // evaporation — proportional fade toward nothing
+  const fadeRate = rinse > 0 ? 0.055 : 0.004;
+  if(rinse > 0) rinse--;
+  inkX.save();
+  inkX.setTransform(1,0,0,1,0,0);
+  inkX.globalCompositeOperation = 'destination-out';
+  inkX.fillStyle = 'rgba(0,0,0,' + fadeRate + ')';
+  inkX.fillRect(0, 0, inkC.width, inkC.height);
+  inkX.restore();
+  // every so often, sweep residue to true zero — no ghost rings
+  if(++sweepTick >= 30){
+    sweepTick = 0;
+    sweep(rinse > 0 ? 12 : 3);
+  }
+
+  // composite
+  ctx.drawImage(paperC, 0, 0);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(inkC, 0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+
+  requestAnimationFrame(frame);
+}
+
+// opening gesture: one quiet bloom behind the poem
+setTimeout(()=>{
+  if(!reduced) spawnInk(innerWidth*0.5, innerHeight*0.34, 0.5);
+}, 700);
+
+frame();
+</script>
+</body>
+</html>
